@@ -1,0 +1,146 @@
+{
+  "version": 1,
+  "author": "Carbon Credit Marketplace",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "wokwi-esp32-devkit-v1",
+      "id": "esp32",
+      "x": -100,
+      "y": 100,
+      "rotate": 0,
+      "color": "#000000"
+    },
+    {
+      "type": "wokwi-mq135",
+      "id": "co2-emission-sensor",
+      "x": 100,
+      "y": 100,
+      "rotate": 0,
+      "color": "#e74c3c"
+    },
+    {
+      "type": "wokwi-led",
+      "id": "activity-led",
+      "x": 200,
+      "y": 100,
+      "rotate": 0,
+      "color": "#ff0000"
+    },
+    {
+      "type": "wokwi-led",
+      "id": "credit-led",
+      "x": 300,
+      "y": 100,
+      "rotate": 0,
+      "color": "#ffff00"
+    },
+    {
+      "type": "wokwi-buzzer",
+      "id": "buzzer",
+      "x": 400,
+      "y": 100,
+      "rotate": 0,
+      "color": "#ff6b6b"
+    },
+    {
+      "type": "wokwi-dht22",
+      "id": "dht22",
+      "x": 100,
+      "y": 200,
+      "rotate": 0,
+      "color": "#3498db"
+    },
+    {
+      "type": "wokwi-potentiometer",
+      "id": "energy-consumption-sensor",
+      "x": 200,
+      "y": 200,
+      "rotate": 0,
+      "color": "#e67e22"
+    }
+  ],
+  "connections": [
+    [
+      "esp32:GPIO2",
+      "activity-led:IN",
+      "red"
+    ],
+    [
+      "esp32:GPIO3",
+      "credit-led:IN",
+      "yellow"
+    ],
+    [
+      "esp32:GPIO4",
+      "buzzer:IN",
+      "red"
+    ],
+    [
+      "esp32:A0",
+      "co2-emission-sensor:AOUT",
+      "gray"
+    ],
+    [
+      "esp32:A1",
+      "energy-consumption-sensor:OUT",
+      "gray"
+    ],
+    [
+      "esp32:GPIO5",
+      "dht22:VCC",
+      "red"
+    ],
+    [
+      "esp32:GPIO6",
+      "dht22:DATA",
+      "yellow"
+    ],
+    [
+      "esp32:GND",
+      "co2-emission-sensor:GND",
+      "black"
+    ],
+    [
+      "esp32:GND",
+      "activity-led:C",
+      "black"
+    ],
+    [
+      "esp32:GND",
+      "credit-led:C",
+      "black"
+    ],
+    [
+      "esp32:GND",
+      "buzzer:GND",
+      "black"
+    ],
+    [
+      "esp32:GND",
+      "dht22:GND",
+      "black"
+    ],
+    [
+      "esp32:GND",
+      "energy-consumption-sensor:GND",
+      "black"
+    ],
+    [
+      "esp32:3V3",
+      "co2-emission-sensor:VCC",
+      "red"
+    ],
+    [
+      "esp32:3V3",
+      "energy-consumption-sensor:VCC",
+      "red"
+    ],
+    [
+      "esp32:3V3",
+      "dht22:VCC",
+      "red"
+    ]
+  ],
+  "dependencies": {}
+}

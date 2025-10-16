@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "author": "Carbon Credit IoT Creator",
+  "editor": "wokwi",
+  "parts": [
+    { 
+      "type": "board-esp32-devkit-c-v4", 
+      "id": "esp", 
+      "top": 0, 
+      "left": -4.76, 
+      "attrs": {
+        "description": "ESP32 DevKit - Main controller with WiFi and MQTT capabilities"
+      }
+    },
+    {
+      "type": "board-ssd1306",
+      "id": "oled1",
+      "top": 195.14,
+      "left": -172.57,
+      "attrs": { 
+        "i2cAddress": "0x3c",
+        "description": "OLED Display - Shows real-time sensor data and MQTT status"
+      }
+    },
+    { 
+      "type": "wokwi-potentiometer", 
+      "id": "pot1", 
+      "top": -49.3, 
+      "left": -201.8, 
+      "attrs": {
+        "description": "CO2 Sensor Simulator - Generates random CO2 readings (300-2000 ppm)"
+      }
+    },
+    { 
+      "type": "wokwi-potentiometer", 
+      "id": "pot2", 
+      "top": -58.9, 
+      "left": 163, 
+      "attrs": {
+        "description": "Humidity Sensor Simulator - Generates random humidity readings (20-80%)"
+      }
+    }
+  ],
+  "connections": [
+    [ "esp:TX", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX", "$serialMonitor:TX", "", [] ],
+    [ "oled1:SDA", "esp:21", "green", [ "v0" ] ],
+    [ "oled1:SCL", "esp:22", "green", [ "v0" ] ],
+    [ "pot1:SIG", "esp:34", "green", [ "v0" ] ],
+    [ "pot2:SIG", "esp:35", "green", [ "v0" ] ],
+    [ "oled1:VCC", "esp:3V3", "red", [ "v0" ] ],
+    [ "oled1:GND", "esp:GND.2", "black", [ "v0" ] ],
+    [ "pot1:GND", "esp:GND.3", "black", [ "v0" ] ],
+    [ "pot1:VCC", "esp:3V3", "red", [ "v0" ] ],
+    [ "pot2:VCC", "esp:3V3", "red", [ "v0" ] ],
+    [ "pot2:GND", "esp:GND.3", "black", [ "v0" ] ],
+    [ "pot1:GND", "esp:GND.2", "black", [ "v67.2", "h-67.2" ] ]
+  ],
+  "dependencies": {},
+  "metadata": {
+    "title": "Carbon Credit IoT Monitor",
+    "description": "ESP32-based carbon credit monitoring system with random sensor data generation, OLED display, and MQTT communication",
+    "features": [
+      "Random CO2 sensor data (300-2000 ppm)",
+      "Random humidity sensor data (20-80%)",
+      "Real-time OLED display",
+      "MQTT data publishing",
+      "Carbon credit calculations",
+      "Offset status monitoring"
+    ],
+    "mqtt_topics": [
+      "carbon_credit/sensor_data - Main sensor readings",
+      "carbon_credit/commands - Remote control commands"
+    ],
+    "data_format": "Compact JSON: {\"c\":CO2,\"h\":Humidity,\"cr\":Credits,\"e\":Emissions,\"o\":Offset,\"t\":Timestamp}"
+  }
+}

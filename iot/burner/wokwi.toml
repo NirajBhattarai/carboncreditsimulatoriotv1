@@ -1,0 +1,28 @@
+[wokwi]
+version = 1
+firmware = 'carbon-credit-burner.ino'
+diagram = 'burner-diagram.json'
+
+# Serial port forwarding for debugging
+rfc2217ServerPort = 4002
+
+# IoT Gateway configuration for ESP32 WiFi
+# Forward local port 8182 to port 80 on the simulated ESP32
+[[net.forward]]
+from = "localhost:8182"
+to = "target:80"
+
+# Forward backend API port for burner data transmission
+[[net.forward]]
+from = "localhost:3000"
+to = "target:3000"
+
+# Forward credit burning API port
+[[net.forward]]
+from = "localhost:3002"
+to = "target:3002"
+
+# Additional port forwarding for development
+[[net.forward]]
+from = "localhost:8082"
+to = "target:8082"
