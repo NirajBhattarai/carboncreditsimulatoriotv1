@@ -1,146 +1,64 @@
 {
   "version": 1,
-  "author": "Carbon Credit Marketplace",
+  "author": "Gas Burner IoT Device",
   "editor": "wokwi",
   "parts": [
-    {
-      "type": "wokwi-esp32-devkit-v1",
-      "id": "esp32",
-      "x": -100,
-      "y": 100,
-      "rotate": 0,
-      "color": "#000000"
+    { 
+      "type": "board-esp32-devkit-c-v4", 
+      "id": "esp", 
+      "top": 0, 
+      "left": -4.76, 
+      "attrs": {
+        "description": "ESP32 DevKit - Main controller with WiFi and MQTT capabilities for gas burner"
+      }
     },
     {
-      "type": "wokwi-mq135",
-      "id": "co2-emission-sensor",
-      "x": 100,
-      "y": 100,
-      "rotate": 0,
-      "color": "#e74c3c"
+      "type": "board-ssd1306",
+      "id": "oled1",
+      "top": 195.14,
+      "left": -172.57,
+      "attrs": { 
+        "i2cAddress": "0x3c",
+        "description": "OLED Display - Shows real-time gas emission data and credit requirements"
+      }
     },
-    {
-      "type": "wokwi-led",
-      "id": "activity-led",
-      "x": 200,
-      "y": 100,
-      "rotate": 0,
-      "color": "#ff0000"
+    { 
+      "type": "wokwi-potentiometer", 
+      "id": "pot1", 
+      "top": -49.3, 
+      "left": -201.8, 
+      "attrs": {
+        "description": "CO2 Gas Emission Sensor - Generates high CO2 readings (800-3000 ppm) requiring credits"
+      }
     },
-    {
-      "type": "wokwi-led",
-      "id": "credit-led",
-      "x": 300,
-      "y": 100,
-      "rotate": 0,
-      "color": "#ffff00"
-    },
-    {
-      "type": "wokwi-buzzer",
-      "id": "buzzer",
-      "x": 400,
-      "y": 100,
-      "rotate": 0,
-      "color": "#ff6b6b"
-    },
-    {
-      "type": "wokwi-dht22",
-      "id": "dht22",
-      "x": 100,
-      "y": 200,
-      "rotate": 0,
-      "color": "#3498db"
-    },
-    {
-      "type": "wokwi-potentiometer",
-      "id": "energy-consumption-sensor",
-      "x": 200,
-      "y": 200,
-      "rotate": 0,
-      "color": "#e67e22"
+    { 
+      "type": "wokwi-potentiometer", 
+      "id": "pot2", 
+      "top": -58.9, 
+      "left": 163, 
+      "attrs": {
+        "description": "Humidity Sensor - Generates high humidity readings (40-90%)"
+      }
     }
   ],
   "connections": [
-    [
-      "esp32:GPIO2",
-      "activity-led:IN",
-      "red"
-    ],
-    [
-      "esp32:GPIO3",
-      "credit-led:IN",
-      "yellow"
-    ],
-    [
-      "esp32:GPIO4",
-      "buzzer:IN",
-      "red"
-    ],
-    [
-      "esp32:A0",
-      "co2-emission-sensor:AOUT",
-      "gray"
-    ],
-    [
-      "esp32:A1",
-      "energy-consumption-sensor:OUT",
-      "gray"
-    ],
-    [
-      "esp32:GPIO5",
-      "dht22:VCC",
-      "red"
-    ],
-    [
-      "esp32:GPIO6",
-      "dht22:DATA",
-      "yellow"
-    ],
-    [
-      "esp32:GND",
-      "co2-emission-sensor:GND",
-      "black"
-    ],
-    [
-      "esp32:GND",
-      "activity-led:C",
-      "black"
-    ],
-    [
-      "esp32:GND",
-      "credit-led:C",
-      "black"
-    ],
-    [
-      "esp32:GND",
-      "buzzer:GND",
-      "black"
-    ],
-    [
-      "esp32:GND",
-      "dht22:GND",
-      "black"
-    ],
-    [
-      "esp32:GND",
-      "energy-consumption-sensor:GND",
-      "black"
-    ],
-    [
-      "esp32:3V3",
-      "co2-emission-sensor:VCC",
-      "red"
-    ],
-    [
-      "esp32:3V3",
-      "energy-consumption-sensor:VCC",
-      "red"
-    ],
-    [
-      "esp32:3V3",
-      "dht22:VCC",
-      "red"
-    ]
+    [ "esp:TX", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX", "$serialMonitor:TX", "", [] ],
+    [ "oled1:SDA", "esp:21", "green", [ "v0" ] ],
+    [ "oled1:SCL", "esp:22", "green", [ "v0" ] ],
+    [ "pot1:SIG", "esp:34", "green", [ "v0" ] ],
+    [ "pot2:SIG", "esp:35", "green", [ "v0" ] ],
+    [ "oled1:VCC", "esp:3V3", "red", [ "v0" ] ],
+    [ "oled1:GND", "esp:GND.2", "black", [ "v0" ] ],
+    [ "pot1:GND", "esp:GND.3", "black", [ "v0" ] ],
+    [ "pot1:VCC", "esp:3V3", "red", [ "v0" ] ],
+    [ "pot2:VCC", "esp:3V3", "red", [ "v0" ] ],
+    [ "pot2:GND", "esp:GND.3", "black", [ "v0" ] ],
+    [ "pot1:GND", "esp:GND.2", "black", [ "v67.2", "h-67.2" ] ]
   ],
-  "dependencies": {}
+  "dependencies": {},
+  "metadata": {
+    "title": "Gas Burner IoT Device",
+    "description": "High gas emission device requiring carbon credit purchases"
+  }
 }

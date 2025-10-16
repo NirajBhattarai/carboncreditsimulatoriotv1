@@ -1,12 +1,10 @@
-#ifndef SECRETS_H
-#define SECRETS_H
+#define WIFI_SSID "Wokwi-GUEST"
+#define WIFI_PASSWORD ""
 
-// WiFi credentials
-#define WIFI_SSID "your_wifi_ssid"
-#define WIFI_PASSWORD "your_wifi_password"
-
-// API endpoints
-#define BURNER_API_URL "http://localhost:3000/api/carbon-burner"
-#define CREDIT_BURN_URL "http://localhost:3000/api/burn-credits"
-
-#endif
+// MQTT Configuration
+#define MQTT_SERVER "192.168.1.87"  // Your computer's IP address
+#define MQTT_PORT 1883
+#define MQTT_USERNAME ""  // Leave empty for anonymous access
+#define MQTT_PASSWORD ""  // Leave empty for anonymous access
+#define MQTT_CLIENT_ID "gas_burner_device"
+#define MQTT_TOPIC_PREFIX "gas_burner"
