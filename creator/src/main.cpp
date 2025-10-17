@@ -86,24 +86,41 @@ bool connectToMqtt() {
     return true;
   }
   
-  Serial.print("Attempting MQTT connection...");
+  Serial.printf("Attempting MQTT connection to %s:%d...", MQTT_SERVER, MQTT_PORT);
   
-  // Attempt to connect
+  // Set keep alive and timeout
+  mqttClient.setKeepAlive(60);
+  
+  // Attempt to connect with will message
   if (mqttClient.connect(MQTT_CLIENT_ID, MQTT_USERNAME, MQTT_PASSWORD)) {
-    Serial.println(" connected");
+    Serial.println(" ✅ CONNECTED");
     mqttConnected = true;
     
     // Subscribe to topics with API key
     char subscribeTopic[100];
     snprintf(subscribeTopic, sizeof(subscribeTopic), "%s/%s/commands", MQTT_TOPIC_PREFIX, API_KEY);
     mqttClient.subscribe(subscribeTopic);
+    Serial.printf("📡 Subscribed to: %s\n", subscribeTopic);
     
     return true;
   } else {
-    Serial.print(" failed, rc=");
-    Serial.print(mqttClient.state());
-    Serial.println(" try again in 5 seconds");
+    Serial.printf(" ❌ FAILED, rc=%d\n", mqttClient.state());
     mqttConnected = false;
+    
+    // Print detailed error information
+    switch (mqttClient.state()) {
+      case -4: Serial.println("  Error: Connection timeout"); break;
+      case -3: Serial.println("  Error: Connection lost"); break;
+      case -2: Serial.println("  Error: Connect failed"); break;
+      case -1: Serial.println("  Error: Disconnected"); break;
+      case 1: Serial.println("  Error: Bad protocol"); break;
+      case 2: Serial.println("  Error: Bad client ID"); break;
+      case 3: Serial.println("  Error: Unavailable"); break;
+      case 4: Serial.println("  Error: Bad credentials"); break;
+      case 5: Serial.println("  Error: Unauthorized"); break;
+      default: Serial.printf("  Error: Unknown state %d\n", mqttClient.state()); break;
+    }
+    
     return false;
   }
 }
@@ -117,7 +134,16 @@ bool connectToMqtt() {
  * @param offset Offset status
  */
 void publishAggregatedDataToMqtt() {
-  if (!mqttClient.connected() || readingsCount == 0) {
+  // Double-check MQTT connection status
+  if (!mqttClient.connected() || !mqttConnected) {
+    Serial.printf("❌ MQTT not connected - skipping publish (Client: %s, Status: %s)\n", 
+                  mqttClient.connected() ? "connected" : "disconnected",
+                  mqttConnected ? "true" : "false");
+    return;
+  }
+  
+  if (readingsCount == 0) {
+    Serial.println("❌ No readings to publish");
     return;
   }
   
@@ -142,17 +168,26 @@ void publishAggregatedDataToMqtt() {
   IPAddress ip = WiFi.localIP();
   String macAddress = WiFi.macAddress();
   
-  // Create comprehensive JSON payload
-  char payload[512];
-  snprintf(payload, sizeof(payload), 
+  // Create comprehensive JSON payload with larger buffer
+  char payload[600];
+  int payloadLen = snprintf(payload, sizeof(payload), 
     "{\"ip\":\"%d.%d.%d.%d\",\"mac\":\"%s\",\"avg_c\":%.1f,\"max_c\":%d,\"min_c\":%d,\"avg_h\":%.1f,\"max_h\":%d,\"min_h\":%d,\"cr\":%.1f,\"e\":%.1f,\"o\":%s,\"t\":%lu,\"type\":\"sequester\",\"samples\":%d}",
     ip[0], ip[1], ip[2], ip[3], macAddress.c_str(), 
     avgCO2, maxCO2, minCO2, avgHumidity, maxHumidity, minHumidity,
     carbonCredits, emissions, offset ? "true" : "false", millis(), readingsCount);
   
+  // Check if payload was truncated
+  if (payloadLen >= sizeof(payload) - 1) {
+    Serial.println("❌ Payload too large - truncated");
+    return;
+  }
+  
   // Publish to topic with API key
   char topic[100];
   snprintf(topic, sizeof(topic), "%s/%s/sensor_data", MQTT_TOPIC_PREFIX, API_KEY);
+  
+  Serial.printf("📤 Publishing to topic: %s\n", topic);
+  Serial.printf("📤 Payload length: %d\n", payloadLen);
   
   bool result = mqttClient.publish(topic, payload);
   
@@ -160,7 +195,7 @@ void publishAggregatedDataToMqtt() {
     Serial.printf("📊 Published aggregated data to MQTT topic: %s (samples: %d)\n", topic, readingsCount);
     readingsCount = 0; // Reset for next aggregation
   } else {
-    Serial.println("❌ MQTT aggregated publish failed");
+    Serial.printf("❌ MQTT aggregated publish failed - State: %d\n", mqttClient.state());
   }
 }
 
@@ -169,6 +204,7 @@ void publishAggregatedDataToMqtt() {
  */
 void sendCriticalAlert(const char* alertType, const char* message) {
   if (!mqttClient.connected()) {
+    Serial.println("❌ MQTT not connected - cannot send alert");
     return;
   }
   
@@ -176,21 +212,29 @@ void sendCriticalAlert(const char* alertType, const char* message) {
   IPAddress ip = WiFi.localIP();
   String macAddress = WiFi.macAddress();
   
-  char payload[400];
-  snprintf(payload, sizeof(payload), 
+  char payload[500];
+  int payloadLen = snprintf(payload, sizeof(payload), 
     "{\"ip\":\"%d.%d.%d.%d\",\"mac\":\"%s\",\"alert_type\":\"%s\",\"message\":\"%s\",\"co2\":%d,\"credits\":%.1f,\"t\":%lu,\"type\":\"alert\"}",
     ip[0], ip[1], ip[2], ip[3], macAddress.c_str(), 
     alertType, message, co2Reading, carbonCredits, millis());
   
+  // Check if payload was truncated
+  if (payloadLen >= sizeof(payload) - 1) {
+    Serial.println("❌ Alert payload too large - truncated");
+    return;
+  }
+  
   char topic[100];
   snprintf(topic, sizeof(topic), "%s/%s/alerts", MQTT_TOPIC_PREFIX, API_KEY);
+  
+  Serial.printf("🚨 Sending critical alert to topic: %s\n", topic);
   
   bool result = mqttClient.publish(topic, payload);
   
   if (result) {
     Serial.printf("🚨 CRITICAL ALERT sent: %s - %s\n", alertType, message);
   } else {
-    Serial.println("❌ Critical alert publish failed");
+    Serial.printf("❌ Critical alert publish failed - State: %d\n", mqttClient.state());
   }
 }
 
@@ -199,6 +243,7 @@ void sendCriticalAlert(const char* alertType, const char* message) {
  */
 void sendHeartbeat() {
   if (!mqttClient.connected()) {
+    Serial.println("❌ MQTT not connected - cannot send heartbeat");
     return;
   }
   
@@ -206,21 +251,29 @@ void sendHeartbeat() {
   IPAddress ip = WiFi.localIP();
   String macAddress = WiFi.macAddress();
   
-  char payload[300];
-  snprintf(payload, sizeof(payload), 
+  char payload[400];
+  int payloadLen = snprintf(payload, sizeof(payload), 
     "{\"ip\":\"%d.%d.%d.%d\",\"mac\":\"%s\",\"status\":\"online\",\"uptime\":%lu,\"rssi\":%d,\"t\":%lu,\"type\":\"heartbeat\"}",
     ip[0], ip[1], ip[2], ip[3], macAddress.c_str(), 
     millis(), WiFi.RSSI(), millis());
   
+  // Check if payload was truncated
+  if (payloadLen >= sizeof(payload) - 1) {
+    Serial.println("❌ Heartbeat payload too large - truncated");
+    return;
+  }
+  
   char topic[100];
   snprintf(topic, sizeof(topic), "%s/%s/heartbeat", MQTT_TOPIC_PREFIX, API_KEY);
+  
+  Serial.printf("💓 Sending heartbeat to topic: %s\n", topic);
   
   bool result = mqttClient.publish(topic, payload);
   
   if (result) {
-    Serial.println("💓 Heartbeat sent");
+    Serial.println("💓 Heartbeat sent successfully");
   } else {
-    Serial.println("❌ Heartbeat publish failed");
+    Serial.printf("❌ Heartbeat publish failed - State: %d\n", mqttClient.state());
   }
 }
 
@@ -322,7 +375,15 @@ void setup() {
   // MQTT setup
   mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
   mqttClient.setCallback(mqttCallback);
-  connectToMqtt();
+  mqttClient.setBufferSize(1024); // Increase buffer size for larger payloads
+  
+  // Test MQTT connection
+  Serial.println("🔌 Testing MQTT connection...");
+  if (connectToMqtt()) {
+    Serial.println("✅ MQTT connection test successful");
+  } else {
+    Serial.println("❌ MQTT connection test failed - will retry in loop");
+  }
 
   // OLED setup
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
@@ -351,15 +412,22 @@ void setup() {
 }
 
 void loop() {
-  // Handle MQTT connection
+  // Handle MQTT connection with better debugging
   if (!mqttClient.connected()) {
+    mqttConnected = false;
     unsigned long currentTime = millis();
     if (currentTime - lastMqttAttempt >= mqttRetryInterval) {
       lastMqttAttempt = currentTime;
+      Serial.printf("🔄 Attempting MQTT reconnection... (State: %d)\n", mqttClient.state());
       connectToMqtt();
     }
   } else {
     mqttClient.loop();
+    // Update connection status
+    if (!mqttConnected) {
+      mqttConnected = true;
+      Serial.println("✅ MQTT connection restored");
+    }
   }
 
   // Generate carbon sequestration data
