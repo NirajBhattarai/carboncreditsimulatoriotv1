@@ -31,6 +31,11 @@ bool offset = false;
 unsigned long lastDataUpdate = 0;
 const unsigned long dataUpdateInterval = 2000; // 2 seconds
 
+// Random MAC and IP generation for multiple simulator instances
+String randomMacAddress = "";
+IPAddress randomIPAddress;
+bool addressesGenerated = false;
+
 // MQTT transmission timing
 unsigned long lastMqttPublish = 0;
 const unsigned long mqttPublishInterval = 15000; // 15 seconds aggregated data
@@ -66,6 +71,62 @@ float creditsBurned = 0.0;
 bool autoPurchaseEnabled = true;
 const float CREDIT_PURCHASE_THRESHOLD = 10.0;  // Auto-purchase when below this
 const float CREDIT_PURCHASE_AMOUNT = 100.0;    // Amount to purchase
+
+/**
+ * @brief Generate a random MAC address for simulator instances
+ * @return String containing the random MAC address
+ */
+String generateRandomMacAddress() {
+  String mac = "";
+  for (int i = 0; i < 6; i++) {
+    if (i > 0) mac += ":";
+    byte randomByte = random(0, 256);
+    if (randomByte < 16) mac += "0";
+    mac += String(randomByte, HEX);
+  }
+  mac.toUpperCase();
+  return mac;
+}
+
+/**
+ * @brief Generate a random IP address for simulator instances
+ * @return IPAddress containing the random IP
+ */
+IPAddress generateRandomIPAddress() {
+  // Generate IP in common private ranges: 192.168.x.x, 10.x.x.x, or 172.16-31.x.x
+  int range = random(0, 3);
+  IPAddress ip;
+  
+  switch (range) {
+    case 0: // 192.168.x.x
+      ip = IPAddress(192, 168, random(1, 255), random(1, 255));
+      break;
+    case 1: // 10.x.x.x
+      ip = IPAddress(10, random(0, 255), random(0, 255), random(1, 255));
+      break;
+    case 2: // 172.16-31.x.x
+      ip = IPAddress(172, random(16, 32), random(0, 255), random(1, 255));
+      break;
+  }
+  return ip;
+}
+
+/**
+ * @brief Initialize random addresses for this simulator instance
+ */
+void initializeRandomAddresses() {
+  if (!addressesGenerated) {
+    randomMacAddress = generateRandomMacAddress();
+    randomIPAddress = generateRandomIPAddress();
+    addressesGenerated = true;
+    
+    Serial.printf("🎲 Generated Random Addresses:\n");
+    Serial.printf("   MAC: %s\n", randomMacAddress.c_str());
+    Serial.printf("   IP: %d.%d.%d.%d\n", 
+                  randomIPAddress[0], randomIPAddress[1], 
+                  randomIPAddress[2], randomIPAddress[3]);
+  }
+}
 
 /**
  * @brief Callback function for MQTT messages
@@ -156,9 +217,9 @@ void publishAggregatedDataToMqtt() {
   avgCO2 /= readingsCount;
   avgHumidity /= readingsCount;
   
-  // Get IP and MAC address
-  IPAddress ip = WiFi.localIP();
-  String macAddress = WiFi.macAddress();
+  // Get random IP and MAC address for simulator
+  IPAddress ip = randomIPAddress;
+  String macAddress = randomMacAddress;
   
   // Create comprehensive JSON payload with larger buffer
   char payload[600];
@@ -200,9 +261,9 @@ void sendCriticalAlert(const char* alertType, const char* message) {
     return;
   }
   
-  // Get IP and MAC address
-  IPAddress ip = WiFi.localIP();
-  String macAddress = WiFi.macAddress();
+  // Get random IP and MAC address for simulator
+  IPAddress ip = randomIPAddress;
+  String macAddress = randomMacAddress;
   
   char payload[400];
   int payloadLen = snprintf(payload, sizeof(payload), 
@@ -246,9 +307,9 @@ void sendHeartbeat() {
     return;
   }
   
-  // Get IP and MAC address
-  IPAddress ip = WiFi.localIP();
-  String macAddress = WiFi.macAddress();
+  // Get random IP and MAC address for simulator
+  IPAddress ip = randomIPAddress;
+  String macAddress = randomMacAddress;
   
   char payload[300];
   int payloadLen = snprintf(payload, sizeof(payload), 
@@ -447,8 +508,11 @@ void setup() {
   display.display();
   delay(2000);
   
-  // Initialize random seed
-  randomSeed(analogRead(0));
+  // Initialize random seed with multiple sources for better randomization
+  randomSeed(analogRead(0) + millis() + WiFi.macAddress().length());
+  
+  // Initialize random addresses for this simulator instance
+  initializeRandomAddresses();
   
   Serial.println("✅ Gas Burner Setup Complete!");
   Serial.println("🔥 HIGH GAS EMISSION MODE ACTIVATED");

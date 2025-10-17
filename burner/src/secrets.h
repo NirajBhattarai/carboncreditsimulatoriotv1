@@ -8,4 +8,4 @@
 #define MQTT_PASSWORD ""  // Leave empty for anonymous access
 #define MQTT_CLIENT_ID "carbon_emitter_device"
 #define MQTT_TOPIC_PREFIX "carbon_emitter"
-#define API_KEY "cc_dccaced6252e08c0d8a1e4cf3a269f412e6680c1efef3d004073c52ba0bf2630"
+#define API_KEY "cc_c98d3c07dfad46e3259a2ad23724cd37b23acfb0195ba6ac10cfb71c3afd753f"
