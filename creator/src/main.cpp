@@ -30,6 +30,24 @@ bool offset = false;
 unsigned long lastDataUpdate = 0;
 const unsigned long dataUpdateInterval = 2000; // 2 seconds
 
+// MQTT transmission timing
+unsigned long lastMqttPublish = 0;
+const unsigned long mqttPublishInterval = 15000; // 15 seconds aggregated data
+unsigned long lastHeartbeat = 0;
+const unsigned long heartbeatInterval = 300000; // 5 minutes heartbeat
+unsigned long lastCriticalAlert = 0;
+const unsigned long criticalAlertCooldown = 30000; // 30 seconds cooldown
+
+// Data aggregation arrays
+int co2Readings[15]; // Store 15 readings (30 seconds worth)
+int humidityReadings[15];
+int readingIndex = 0;
+int readingsCount = 0;
+
+// Critical thresholds
+const int CRITICAL_CO2_THRESHOLD = 1800; // High CO2 level for sequester
+const float CRITICAL_CREDITS_THRESHOLD = 2.0; // Critical low credits
+
 // MQTT connection status
 bool mqttConnected = false;
 unsigned long lastMqttAttempt = 0;
@@ -91,27 +109,46 @@ bool connectToMqtt() {
 }
 
 /**
- * @brief Publish sensor data to MQTT with IP and MAC address
+ * @brief Publish aggregated sensor data to MQTT (optimized for carbon monitoring)
  * @param co2 CO2 reading
  * @param humidity Humidity reading
  * @param credits Carbon credits
  * @param emissions Emissions value
  * @param offset Offset status
  */
-void publishToMqtt(int co2, int humidity, float credits, float emissions, bool offset) {
-  if (!mqttClient.connected()) {
+void publishAggregatedDataToMqtt() {
+  if (!mqttClient.connected() || readingsCount == 0) {
     return;
   }
+  
+  // Calculate aggregated statistics
+  float avgCO2 = 0, avgHumidity = 0;
+  int maxCO2 = 0, minCO2 = 9999;
+  int maxHumidity = 0, minHumidity = 9999;
+  
+  for (int i = 0; i < readingsCount; i++) {
+    avgCO2 += co2Readings[i];
+    avgHumidity += humidityReadings[i];
+    maxCO2 = max(maxCO2, co2Readings[i]);
+    minCO2 = min(minCO2, co2Readings[i]);
+    maxHumidity = max(maxHumidity, humidityReadings[i]);
+    minHumidity = min(minHumidity, humidityReadings[i]);
+  }
+  
+  avgCO2 /= readingsCount;
+  avgHumidity /= readingsCount;
   
   // Get IP and MAC address
   IPAddress ip = WiFi.localIP();
   String macAddress = WiFi.macAddress();
   
-  // Create JSON payload with IP and MAC address (removed API key)
-  char payload[320];
+  // Create comprehensive JSON payload
+  char payload[512];
   snprintf(payload, sizeof(payload), 
-    "{\"ip\":\"%d.%d.%d.%d\",\"mac\":\"%s\",\"c\":%d,\"h\":%d,\"cr\":%.1f,\"e\":%.1f,\"o\":%s,\"t\":%lu,\"type\":\"sequester\"}",
-    ip[0], ip[1], ip[2], ip[3], macAddress.c_str(), co2, humidity, credits, emissions, offset ? "true" : "false", millis());
+    "{\"ip\":\"%d.%d.%d.%d\",\"mac\":\"%s\",\"avg_c\":%.1f,\"max_c\":%d,\"min_c\":%d,\"avg_h\":%.1f,\"max_h\":%d,\"min_h\":%d,\"cr\":%.1f,\"e\":%.1f,\"o\":%s,\"t\":%lu,\"type\":\"sequester\",\"samples\":%d}",
+    ip[0], ip[1], ip[2], ip[3], macAddress.c_str(), 
+    avgCO2, maxCO2, minCO2, avgHumidity, maxHumidity, minHumidity,
+    carbonCredits, emissions, offset ? "true" : "false", millis(), readingsCount);
   
   // Publish to topic with API key
   char topic[100];
@@ -120,34 +157,101 @@ void publishToMqtt(int co2, int humidity, float credits, float emissions, bool o
   bool result = mqttClient.publish(topic, payload);
   
   if (result) {
-    Serial.printf("  ✅ Published to MQTT topic: %s\n", topic);
+    Serial.printf("📊 Published aggregated data to MQTT topic: %s (samples: %d)\n", topic, readingsCount);
+    readingsCount = 0; // Reset for next aggregation
   } else {
-    Serial.println("  ❌ MQTT publish failed");
+    Serial.println("❌ MQTT aggregated publish failed");
   }
 }
 
 /**
- * @brief Generate random sensor data within realistic ranges
+ * @brief Send critical alert for dangerous conditions
  */
-void generateRandomSensorData() {
+void sendCriticalAlert(const char* alertType, const char* message) {
+  if (!mqttClient.connected()) {
+    return;
+  }
+  
+  // Get IP and MAC address
+  IPAddress ip = WiFi.localIP();
+  String macAddress = WiFi.macAddress();
+  
+  char payload[400];
+  snprintf(payload, sizeof(payload), 
+    "{\"ip\":\"%d.%d.%d.%d\",\"mac\":\"%s\",\"alert_type\":\"%s\",\"message\":\"%s\",\"co2\":%d,\"credits\":%.1f,\"t\":%lu,\"type\":\"alert\"}",
+    ip[0], ip[1], ip[2], ip[3], macAddress.c_str(), 
+    alertType, message, co2Reading, carbonCredits, millis());
+  
+  char topic[100];
+  snprintf(topic, sizeof(topic), "%s/%s/alerts", MQTT_TOPIC_PREFIX, API_KEY);
+  
+  bool result = mqttClient.publish(topic, payload);
+  
+  if (result) {
+    Serial.printf("🚨 CRITICAL ALERT sent: %s - %s\n", alertType, message);
+  } else {
+    Serial.println("❌ Critical alert publish failed");
+  }
+}
+
+/**
+ * @brief Send heartbeat status every 5 minutes
+ */
+void sendHeartbeat() {
+  if (!mqttClient.connected()) {
+    return;
+  }
+  
+  // Get IP and MAC address
+  IPAddress ip = WiFi.localIP();
+  String macAddress = WiFi.macAddress();
+  
+  char payload[300];
+  snprintf(payload, sizeof(payload), 
+    "{\"ip\":\"%d.%d.%d.%d\",\"mac\":\"%s\",\"status\":\"online\",\"uptime\":%lu,\"rssi\":%d,\"t\":%lu,\"type\":\"heartbeat\"}",
+    ip[0], ip[1], ip[2], ip[3], macAddress.c_str(), 
+    millis(), WiFi.RSSI(), millis());
+  
+  char topic[100];
+  snprintf(topic, sizeof(topic), "%s/%s/heartbeat", MQTT_TOPIC_PREFIX, API_KEY);
+  
+  bool result = mqttClient.publish(topic, payload);
+  
+  if (result) {
+    Serial.println("💓 Heartbeat sent");
+  } else {
+    Serial.println("❌ Heartbeat publish failed");
+  }
+}
+
+/**
+ * @brief Generate carbon sequestration sensor data and store for aggregation
+ */
+void generateCarbonSequestrationData() {
   unsigned long currentTime = millis();
   
   if (currentTime - lastDataUpdate >= dataUpdateInterval) {
     lastDataUpdate = currentTime;
     
-    // Generate random CO2 reading (300-2000 ppm)
+    // Generate CO2 reading (300-2000 ppm) - sequestering carbon
     co2Reading = random(CO2_MIN, CO2_MAX + 1);
     
-    // Generate random humidity reading (20-80%)
+    // Generate humidity reading (20-80%)
     humidityReading = random(HUMIDITY_MIN, HUMIDITY_MAX + 1);
     
-    // Calculate carbon credits and emissions
-    carbonCredits = co2Reading * 0.5;
-    emissions = humidityReading * 0.2;
+    // Store readings for aggregation
+    co2Readings[readingIndex] = co2Reading;
+    humidityReadings[readingIndex] = humidityReading;
+    readingIndex = (readingIndex + 1) % 15;
+    if (readingsCount < 15) readingsCount++;
+    
+    // Calculate carbon credits generated and emissions offset
+    carbonCredits = co2Reading * 0.5;  // Credits generated from sequestration
+    emissions = humidityReading * 0.2; // Emissions offset
     offset = (carbonCredits >= emissions);
     
-    Serial.printf("🔄 Generated new data - CO2:%d Hum:%d Credits:%.1f Offset:%s\n",
-                  co2Reading, humidityReading, carbonCredits, 
+    Serial.printf("🌱 CARBON SEQUESTRATION - CO2:%d Hum:%d Credits Generated:%.1f Offset:%s\n",
+                  co2Reading, humidityReading, carbonCredits,
                   offset ? "YES" : "NO");
   }
 }
@@ -162,7 +266,7 @@ void updateOLEDDisplay() {
   
   // Title
   display.setCursor(0, 0);
-  display.println("Carbon Credit Monitor");
+  display.println("Carbon Sequester");
   
   // CO2 reading
   display.setCursor(0, 12);
@@ -231,9 +335,9 @@ void setup() {
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 0);
-  display.println("Carbon Credit");
+  display.println("Carbon Sequester");
   display.setCursor(0, 15);
-  display.println("Monitor");
+  display.println("Carbon Capture");
   display.setCursor(0, 35);
   display.println("Initializing...");
   display.display();
@@ -242,7 +346,8 @@ void setup() {
   // Initialize random seed
   randomSeed(analogRead(0));
   
-  Serial.println("✅ Setup Complete!");
+  Serial.println("✅ Carbon Sequester Setup Complete!");
+  Serial.println("🌱 CARBON SEQUESTRATION MODE ACTIVATED");
 }
 
 void loop() {
@@ -257,14 +362,37 @@ void loop() {
     mqttClient.loop();
   }
 
-  // Generate random sensor data
-  generateRandomSensorData();
+  // Generate carbon sequestration data
+  generateCarbonSequestrationData();
   
   // Update OLED display
   updateOLEDDisplay();
 
-  // Publish to MQTT
-  publishToMqtt(co2Reading, humidityReading, carbonCredits, emissions, offset);
+  // Hybrid MQTT transmission system
+  unsigned long currentTime = millis();
+  
+  // 1. Send aggregated data every 15 seconds
+  if (currentTime - lastMqttPublish >= mqttPublishInterval) {
+    publishAggregatedDataToMqtt();
+    lastMqttPublish = currentTime;
+  }
+  
+  // 2. Send critical alerts immediately (with cooldown)
+  if (currentTime - lastCriticalAlert >= criticalAlertCooldown) {
+    if (co2Reading > CRITICAL_CO2_THRESHOLD) {
+      sendCriticalAlert("HIGH_CO2", "High CO2 levels detected - sequestration needed!");
+      lastCriticalAlert = currentTime;
+    } else if (carbonCredits < CRITICAL_CREDITS_THRESHOLD) {
+      sendCriticalAlert("LOW_CREDITS", "Low carbon credit generation!");
+      lastCriticalAlert = currentTime;
+    }
+  }
+  
+  // 3. Send heartbeat every 5 minutes
+  if (currentTime - lastHeartbeat >= heartbeatInterval) {
+    sendHeartbeat();
+    lastHeartbeat = currentTime;
+  }
 
   delay(1000); // Faster update for better display experience
 }
