@@ -1,0 +1,5 @@
+# Mosquitto MQTT broker files
+creator/mqtt/log/mosquitto.log
+creator/mqtt/data/mosquitto.db
+creator/mqtt/data/
+
