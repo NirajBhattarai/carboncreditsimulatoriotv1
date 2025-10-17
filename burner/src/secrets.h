@@ -6,5 +6,6 @@
 #define MQTT_PORT 1883
 #define MQTT_USERNAME ""  // Leave empty for anonymous access
 #define MQTT_PASSWORD ""  // Leave empty for anonymous access
-#define MQTT_CLIENT_ID "gas_burner_device"
-#define MQTT_TOPIC_PREFIX "gas_burner"
+#define MQTT_CLIENT_ID "carbon_emitter_device"
+#define MQTT_TOPIC_PREFIX "carbon_emitter"
+#define API_KEY "cc_dccaced6252e08c0d8a1e4cf3a269f412e6680c1efef3d004073c52ba0bf2630"

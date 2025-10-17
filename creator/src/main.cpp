@@ -108,9 +108,9 @@ void publishToMqtt(int co2, int humidity, float credits, float emissions, bool o
   String macAddress = WiFi.macAddress();
   
   // Create JSON payload with IP and MAC address (removed API key)
-  char payload[300];
+  char payload[320];
   snprintf(payload, sizeof(payload), 
-    "{\"ip\":\"%d.%d.%d.%d\",\"mac\":\"%s\",\"c\":%d,\"h\":%d,\"cr\":%.1f,\"e\":%.1f,\"o\":%s,\"t\":%lu}",
+    "{\"ip\":\"%d.%d.%d.%d\",\"mac\":\"%s\",\"c\":%d,\"h\":%d,\"cr\":%.1f,\"e\":%.1f,\"o\":%s,\"t\":%lu,\"type\":\"sequester\"}",
     ip[0], ip[1], ip[2], ip[3], macAddress.c_str(), co2, humidity, credits, emissions, offset ? "true" : "false", millis());
   
   // Publish to topic with API key
