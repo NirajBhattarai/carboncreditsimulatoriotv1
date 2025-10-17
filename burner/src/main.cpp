@@ -110,11 +110,16 @@ void publishToMqtt(int co2, int humidity, float credits, float emissions, bool o
     return;
   }
   
-  // Create compact JSON payload
-  char payload[128];
+  // Get MAC address and IP address
+  String macAddress = WiFi.macAddress();
+  String ipAddress = WiFi.localIP().toString();
+  
+  // Create JSON payload with MAC and IP
+  char payload[256];
   snprintf(payload, sizeof(payload), 
-    "{\"c\":%d,\"h\":%d,\"cr\":%.1f,\"e\":%.1f,\"o\":%s,\"t\":%lu}",
-    co2, humidity, credits, emissions, offset ? "true" : "false", millis());
+    "{\"c\":%d,\"h\":%d,\"cr\":%.1f,\"e\":%.1f,\"o\":%s,\"mac\":\"%s\",\"ip\":\"%s\",\"t\":%lu}",
+    co2, humidity, credits, emissions, offset ? "true" : "false", 
+    macAddress.c_str(), ipAddress.c_str(), millis());
   
   // Publish to main topic
   char topic[32];
@@ -231,58 +236,6 @@ void burnCreditsForOffset() {
       
       // Credit burn logged locally
     }
-  }
-}
-
-/**
- * @brief Send credit purchase data to backend
- */
-void sendCreditPurchaseToBackend(float creditsPurchased) {
-  if (WiFi.status() == WL_CONNECTED) {
-    HTTPClient http;
-    http.begin("http://localhost:3000/api/purchase-credits");
-    http.addHeader("Content-Type", "application/json");
-    
-    String jsonPayload = "{";
-    jsonPayload += "\"deviceId\":\"GAS_BURNER_" + String(random(1000, 9999)) + "\",";
-    jsonPayload += "\"deviceType\":\"gas_burner\",";
-    jsonPayload += "\"creditsPurchased\":" + String(creditsPurchased) + ",";
-    jsonPayload += "\"totalCredits\":" + String(availableCredits) + ",";
-    jsonPayload += "\"co2Level\":" + String(co2Reading) + ",";
-    jsonPayload += "\"timestamp\":" + String(millis());
-    jsonPayload += "}";
-    
-    int httpResponseCode = http.POST(jsonPayload);
-    if (httpResponseCode > 0) {
-      Serial.println("✅ Credit purchase sent to backend");
-    }
-    http.end();
-  }
-}
-
-/**
- * @brief Send credit burn data to backend
- */
-void sendCreditBurnToBackend(float creditsBurned) {
-  if (WiFi.status() == WL_CONNECTED) {
-    HTTPClient http;
-    http.begin("http://localhost:3000/api/burn-credits");
-    http.addHeader("Content-Type", "application/json");
-    
-    String jsonPayload = "{";
-    jsonPayload += "\"deviceId\":\"GAS_BURNER_" + String(random(1000, 9999)) + "\",";
-    jsonPayload += "\"deviceType\":\"gas_burner\",";
-    jsonPayload += "\"creditsBurned\":" + String(creditsBurned) + ",";
-    jsonPayload += "\"co2Offset\":" + String(co2Reading) + ",";
-    jsonPayload += "\"remainingCredits\":" + String(availableCredits) + ",";
-    jsonPayload += "\"timestamp\":" + String(millis());
-    jsonPayload += "}";
-    
-    int httpResponseCode = http.POST(jsonPayload);
-    if (httpResponseCode > 0) {
-      Serial.println("✅ Credit burn sent to backend");
-    }
-    http.end();
   }
 }
 

@@ -75,9 +75,10 @@ bool connectToMqtt() {
     Serial.println(" connected");
     mqttConnected = true;
     
-    // Subscribe to topics if needed
-    String subscribeTopic = String(MQTT_TOPIC_PREFIX) + "/commands";
-    mqttClient.subscribe(subscribeTopic.c_str());
+    // Subscribe to topics with API key
+    char subscribeTopic[100];
+    snprintf(subscribeTopic, sizeof(subscribeTopic), "%s/%s/commands", MQTT_TOPIC_PREFIX, API_KEY);
+    mqttClient.subscribe(subscribeTopic);
     
     return true;
   } else {
@@ -90,7 +91,7 @@ bool connectToMqtt() {
 }
 
 /**
- * @brief Publish sensor data to MQTT (optimized)
+ * @brief Publish sensor data to MQTT with IP and MAC address
  * @param co2 CO2 reading
  * @param humidity Humidity reading
  * @param credits Carbon credits
@@ -102,20 +103,24 @@ void publishToMqtt(int co2, int humidity, float credits, float emissions, bool o
     return;
   }
   
-  // Create compact JSON payload
-  char payload[128];
-  snprintf(payload, sizeof(payload), 
-    "{\"c\":%d,\"h\":%d,\"cr\":%.1f,\"e\":%.1f,\"o\":%s,\"t\":%lu}",
-    co2, humidity, credits, emissions, offset ? "true" : "false", millis());
+  // Get IP and MAC address
+  IPAddress ip = WiFi.localIP();
+  String macAddress = WiFi.macAddress();
   
-  // Publish to main topic
-  char topic[32];
-  snprintf(topic, sizeof(topic), "%s/sensor_data", MQTT_TOPIC_PREFIX);
+  // Create JSON payload with IP and MAC address (removed API key)
+  char payload[300];
+  snprintf(payload, sizeof(payload), 
+    "{\"ip\":\"%d.%d.%d.%d\",\"mac\":\"%s\",\"c\":%d,\"h\":%d,\"cr\":%.1f,\"e\":%.1f,\"o\":%s,\"t\":%lu}",
+    ip[0], ip[1], ip[2], ip[3], macAddress.c_str(), co2, humidity, credits, emissions, offset ? "true" : "false", millis());
+  
+  // Publish to topic with API key
+  char topic[100];
+  snprintf(topic, sizeof(topic), "%s/%s/sensor_data", MQTT_TOPIC_PREFIX, API_KEY);
   
   bool result = mqttClient.publish(topic, payload);
   
   if (result) {
-    Serial.println("  ✅ Published to MQTT");
+    Serial.printf("  ✅ Published to MQTT topic: %s\n", topic);
   } else {
     Serial.println("  ❌ MQTT publish failed");
   }

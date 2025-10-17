@@ -2,7 +2,7 @@
 #define WIFI_PASSWORD ""
 
 // MQTT Configuration
-#define MQTT_SERVER "192.168.1.87"  // Your computer's IP address
+#define MQTT_SERVER "192.168.1.69"  // Your computer's IP address
 #define MQTT_PORT 1883
 #define MQTT_USERNAME ""  // Leave empty for anonymous access
 #define MQTT_PASSWORD ""  // Leave empty for anonymous access
